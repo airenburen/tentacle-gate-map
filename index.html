@@ -80,11 +80,13 @@
 </div>
 
 <script>
-  // 从 URL 推导分组与显示标签；清单顺序原样保留
+  // 从 URL 推导分组、显示标签与本站镜像路径；清单顺序原样保留
+  // 镜像路径 = 原链接去掉 https://api.ai-pie.com/s/ 与查询串，即本站对应后缀
   function parse(url) {
+    var link = url.replace("https://api.ai-pie.com/s/", "").split("?")[0] + "/";
     var m = url.match(/\/gate\/tentacle\/id\/([lh])\/(\d+)$/);
-    if (m) return { group: "id / " + m[1], label: m[2] };
-    return { group: "控制接口", label: url.replace("https://api.ai-pie.com/s/", "") };
+    if (m) return { group: "id / " + m[1], label: m[2], link: link };
+    return { group: "控制接口", label: url.replace("https://api.ai-pie.com/s/", ""), link: link };
   }
 
   function render(urls) {
@@ -105,11 +107,11 @@
         list.appendChild(section);
       }
       var a = document.createElement("a");
-      a.href = url;
+      a.href = info.link;
       a.target = "_blank";
       a.rel = "noopener";
       a.textContent = info.label;
-      a.title = url;
+      a.title = url + "  →  " + info.link;
       container.appendChild(a);
       count++;
       if (section && container.childElementCount === 1) {
@@ -127,7 +129,7 @@
     });
 
     document.getElementById("meta").textContent =
-      "共 " + count + " 条 · api.ai-pie.com/s/gate/tentacle";
+      "共 " + count + " 条 · 本站为 api.ai-pie.com/s 的静态镜像（去掉 /s/ 前缀）";
   }
 
   fetch("urls.json", { cache: "no-cache" })
