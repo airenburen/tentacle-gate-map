@@ -80,13 +80,13 @@
 </div>
 
 <script>
-  // 从 URL 推导分组、显示标签与本站镜像路径；清单顺序原样保留
-  // 镜像路径 = 原链接去掉 https://api.ai-pie.com/s/ 与查询串，即本站对应后缀
+  // 后缀 = 原链接去掉 https://api.ai-pie.com/s/ 与查询串
+  // 观看时用 ?p=<后缀> 这种根级 URL；本机加速器代理只放行根级路径，用路径形式会被它拦成 500
   function parse(url) {
-    var link = url.replace("https://api.ai-pie.com/s/", "").split("?")[0] + "/";
+    var path = url.replace("https://api.ai-pie.com/s/", "").split("?")[0].replace(/^\/+|\/+$/g, "");
     var m = url.match(/\/gate\/tentacle\/id\/([lh])\/(\d+)$/);
-    if (m) return { group: "id / " + m[1], label: m[2], link: link };
-    return { group: "控制接口", label: url.replace("https://api.ai-pie.com/s/", ""), link: link };
+    if (m) return { group: "id / " + m[1], label: m[2], path: path };
+    return { group: "控制接口", label: url.replace("https://api.ai-pie.com/s/", ""), path: path };
   }
 
   function render(urls) {
@@ -107,11 +107,11 @@
         list.appendChild(section);
       }
       var a = document.createElement("a");
-      a.href = info.link;
+      a.href = "?p=" + info.path;
       a.target = "_blank";
       a.rel = "noopener";
       a.textContent = info.label;
-      a.title = url + "  →  " + info.link;
+      a.title = url + "  →  ?p=" + info.path;
       container.appendChild(a);
       count++;
       if (section && container.childElementCount === 1) {
@@ -132,17 +132,45 @@
       "共 " + count + " 条 · 本站为 api.ai-pie.com/s 的静态镜像（去掉 /s/ 前缀）";
   }
 
-  fetch("urls.json", { cache: "no-cache" })
-    .then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    })
-    .then(render)
-    .catch(function (e) {
-      document.getElementById("meta").innerHTML =
-        '<span id="err">urls.json 加载失败（' + e.message +
-        '）。直接用文件打开会被浏览器拦截 fetch，请用本地服务器预览，或部署到 GitHub Pages 后再看。</span>';
-    });
+  // 带 ?p=<后缀> 时整页呈现该后缀的镜像内容，否则渲染清单
+  var qp = new URLSearchParams(location.search).get("p");
+
+  function showContent(raw) {
+    var key = raw.replace(/^\/+|\/+$/g, "");
+    if (key.indexOf("s/") === 0) key = key.slice(2); // 宽容处理多写了 /s/ 的情况
+    document.title = key;
+    document.body.textContent = "";
+    document.body.style.cssText = "font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap";
+    fetch("mirror.json", { cache: "no-cache" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (map) {
+        var content = map[key];
+        if (content === undefined) throw new Error("清单里没有这个后缀：" + key);
+        document.body.textContent = content; // 用 textContent 保证内容原样呈现、不被当 HTML 解析
+      })
+      .catch(function (e) {
+        document.body.textContent = "读取失败：" + e.message;
+      });
+  }
+
+  if (qp) {
+    showContent(qp);
+  } else {
+    fetch("urls.json", { cache: "no-cache" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(render)
+      .catch(function (e) {
+        document.getElementById("meta").innerHTML =
+          '<span id="err">urls.json 加载失败（' + e.message +
+          '）。直接用文件打开会被浏览器拦截 fetch，请用本地服务器预览，或部署到 GitHub Pages 后再看。</span>';
+      });
+  }
 </script>
 </body>
 </html>
